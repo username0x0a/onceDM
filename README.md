@@ -26,10 +26,12 @@ Save Instagram DM view-once media. Preview, download, or export everything as ZI
 
 ## Install locally
 
-1. Open `chrome://extensions`
-2. Turn on `Developer mode`
-3. Click `Load unpacked`
-4. Select this folder
+1. Download the file zip from here: `https://github.com/exabeet/onceDM/releases/tag/onceDM`
+2. Unpack the file zip
+3. Open `chrome://extensions`
+4. Turn on `Developer mode`
+5. Click `Load unpacked`
+6. Select the folder
 
 ## Notes
 
