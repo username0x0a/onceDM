@@ -47,7 +47,64 @@
       return filename;
     }
 
-    return url.includes(".mp4") ? `${filename}.mp4` : `${filename}.jpeg`;
+    if (url.includes(".webm")) {
+      return `${filename}.webm`;
+    }
+
+    if (url.includes(".mp4")) {
+      return `${filename}.mp4`;
+    }
+
+    return `${filename}.jpeg`;
+  }
+
+  function isTrustedCdnUrl(url) {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return (
+        host === "fbcdn.net" ||
+        host.endsWith(".fbcdn.net") ||
+        host === "cdninstagram.com" ||
+        host.endsWith(".cdninstagram.com") ||
+        host.startsWith("video.")
+      );
+    } catch (error) {
+      void error;
+      return false;
+    }
+  }
+
+  function inferMediaType(url) {
+    return /\.(?:mp4|webm)(?:\?|$)/i.test(url) ? "video" : "image";
+  }
+
+  function extractMediaFromNormalizedHtml(html) {
+    const seen = new Set();
+    const hits = [];
+
+    const pushHit = (rawUrl) => {
+      const url = rawUrl.replace(/\\+$/g, "");
+      if (!url.startsWith("https://") || seen.has(url) || !isTrustedCdnUrl(url)) {
+        return;
+      }
+
+      seen.add(url);
+      hits.push({ url, type: inferMediaType(url) });
+    };
+
+    // DM video files are often on instagram.*.fbcdn.net / cdninstagram.com, not on video.* (poster JPEGs).
+    const videoFileRegex = /https:\/\/[^"',\s]+\.(?:mp4|webm)(?:\?[^"',\s]*)?/gi;
+    let match;
+    while ((match = videoFileRegex.exec(html)) !== null) {
+      pushHit(match[0]);
+    }
+
+    const videoHostRegex = /https:\/\/video[^"',\s]+/gi;
+    while ((match = videoHostRegex.exec(html)) !== null) {
+      pushHit(match[0]);
+    }
+
+    return hits;
   }
 
   async function loadPreviewMedia(url, element) {
@@ -181,15 +238,11 @@
         .map(normalizeText)
         .join("\n");
 
-      // Keep the original narrow matcher so OnceDM only surfaces
-      // the ephemeral "view once" media flow the first app detected.
-      const mediaRegex = /https:\/\/video[^",\s]+/g;
       const existingUrls = new Set(Array.from(mediaMap.values()).map((item) => item.url));
+      const hits = extractMediaFromNormalizedHtml(normalizedHtml);
 
-      let match;
       let foundNewMedia = false;
-      while ((match = mediaRegex.exec(normalizedHtml)) !== null) {
-        const url = match[0].replace(/\\+$/g, "");
+      for (const { url, type } of hits) {
         if (existingUrls.has(url)) {
           continue;
         }
@@ -199,10 +252,7 @@
           continue;
         }
 
-        mediaMap.set(filename, {
-          url,
-          type: url.includes(".mp4") ? "video" : "image",
-        });
+        mediaMap.set(filename, { url, type });
         existingUrls.add(url);
         createCard(filename);
         foundNewMedia = true;
@@ -344,7 +394,7 @@
 
     const version = $("#app-version");
     if (version) {
-      version.textContent = "v1.1.0";
+      version.textContent = "v1.1.1";
     }
 
     updateHeaderState();
